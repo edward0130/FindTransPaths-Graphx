@@ -1,0 +1,10 @@
+<component name="ArtifactManager">
+  <artifact name="FindTransPaths-Graphx:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/FindTransPaths_Graphx_jar</output-path>
+    <root id="root">
+      <element id="archive" name="FindTransPaths-Graphx.jar">
+        <element id="module-output" name="FindTransPaths-Graphx" />
+      </element>
+    </root>
+  </artifact>
+</component>
