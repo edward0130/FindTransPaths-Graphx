@@ -123,12 +123,12 @@ class TransMain{
           var nodeList: ListBuffer[NodeInfo] = getTransInfo(node, transPath.levelNum, transPath.queue, transPath.endTransList, allPath)
 
           //单笔交易
-          if (nodeList.size == 1){
-            transPath.queue.enqueue(nodeList(0))
-          }
+//          if (nodeList.size == 1){
+//            transPath.queue.enqueue(nodeList(0))
+//          }
 
           //组合交易
-          else if(nodeList.size > 1){
+          if(nodeList.size >= 1){
 
             val target = node.totalMoney
             //组合序号列表结果集
@@ -148,7 +148,8 @@ class TransMain{
               //记录当前层级剩余的队列数量
               bt.queueNum = count - i - 1;
               for (k <- 0 until allCombine(j).size) {
-                bt.queue.enqueue(nodeList(allCombine(j)(k)));
+                if (!unionTransInfo(nodeList, nodeList(allCombine(j)(k)), bt.queue))
+                  bt.queue.enqueue(nodeList(allCombine(j)(k)))
               }
               //把组合路径放到堆栈中，
               pathStack.push(bt);
@@ -156,7 +157,8 @@ class TransMain{
             //把组合的第一个路径写入队列
             if (allCombine.size>0) {
               for(k <- 0 until allCombine(0).size){
-                transPath.queue.enqueue(nodeList(allCombine(0)(k)))
+                if (!unionTransInfo(nodeList, nodeList(allCombine(0)(k)), transPath.queue))
+                  transPath.queue.enqueue(nodeList(allCombine(0)(k)))
               }
             }
           }
@@ -166,7 +168,7 @@ class TransMain{
       //层级信息加入到列表结果集中
       transPath.info.append(levelList.toList)
     }
-    println("transPath:"+transPath.toString)
+    //println("transPath:"+transPath.toString)
     transPath.info
   }
 
@@ -252,9 +254,9 @@ class TransMain{
 
     //单笔交易不能少于指定金额
     // 目标节点 < 最小金额    过滤掉
-//    if (n.totalMoney < limit.getMinMoney) {
-//      return true
-//    }
+    if (n.totalMoney < limit.getMinMoney) {
+      return true
+    }
 
     false
   }
@@ -266,7 +268,7 @@ class TransMain{
     * @param node
     * @return
     **/
-  def unionTransInfo(nodeList: ListBuffer[NodeInfo], node: NodeInfo, queue: mutable.Queue[NodeInfo]): Unit = {
+  def unionTransInfo(nodeList: ListBuffer[NodeInfo], node: NodeInfo, queue: mutable.Queue[NodeInfo]): Boolean = {
 
     for (qNode <- queue) {
       //此处有个问题，针对组合的情况，如果把部分结果直接和队列进行合并结果数据不对。应该分情况处理，针对有组合的情况，组合确认后再合并
@@ -276,10 +278,11 @@ class TransMain{
         qNode.cardId+=(node.cardId(0))
         qNode.dealMoney+=(node.dealMoney(0))
         qNode.dealTime+=(node.dealTime(0))
-        return
+        return true
       }
     }
-    nodeList+=node
+    false
+    //nodeList+=node
   }
 
 
@@ -316,8 +319,8 @@ class TransMain{
       if (r == false){
 
         //对交易目标相同的账号进行合并
-        unionTransInfo(nodeList, n, queue)
-
+        //unionTransInfo(nodeList, n, queue)
+        nodeList+=n
       }
 
     }

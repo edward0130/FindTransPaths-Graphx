@@ -1,8 +1,9 @@
 package com.transpaths
 
+
 import org.apache.spark.graphx.{Edge, EdgeDirection, Graph, VertexId}
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.types.{IntegerType, LongType, StringType, StructField, StructType}
+import org.apache.spark.sql.types.{DoubleType, IntegerType, LongType, StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession, types}
 import org.apache.spark.{SparkConf, SparkContext}
 
@@ -15,12 +16,16 @@ object TransInfo {
 
   def main(args: Array[String]): Unit = {
 
-    //调用 spark-submit --master local --class TransPath.TransInfo  graphx-1.0-SNAPSHOT.jar
+    //调用 spark-submit --master local --class com.transpaths.TransInfo  FindTransPaths-Graphx.jar "select src_id, dst_id, deal_time, deal_money from transaction where partition_dt=20220101" "transresult"
 
     //创建运行环境
-    val conf = new SparkConf().setAppName("TransInfo-GraphX").setMaster("local")
+    val conf = new SparkConf().setAppName("TransInfo-GraphX")
 
+    if (args.size != 2) return
+    val sqlStr = args(0)
+    val resultTable = args(1)
 
+    //println(sqlStr)
     //读取json文件
     //val spark = SparkSession.builder().config(conf).getOrCreate()
     //val df = spark.read.json("data/data.json")
@@ -28,7 +33,9 @@ object TransInfo {
 
     //读取Hive数据库
     val spark = SparkSession.builder().enableHiveSupport().config(conf).getOrCreate()
-    val hrdd: RDD[Row] = spark.sql("select src_id, dst_id, deal_time, deal_money from transaction where partition_dt=20220101").rdd
+    val hrdd = spark.sql(sqlStr).rdd
+
+
     val trans: RDD[Edge[(Long, Double)]] = hrdd.map(r => Edge(r.get(0).toString.toLong, r.get(1).toString.toLong, (transTimeToLong(r.get(2).toString), r.get(3).toString.toDouble)))
 
     //通过边数据构建图
@@ -48,125 +55,106 @@ object TransInfo {
 
       // 更新顶点信息， 把列表进行合并
       (id, path, newPaths) => {
-        println("v: id:" + id + ",path:" + path + ",newpath:" + newPaths);
+        //println("v: id:" + id + ",path:" + path + ",newpath:" + newPaths);
         path ++ newPaths
       },
 
       // 向活跃节点发送消息
       triplet => {
-        println("sendmsg:" + triplet.srcId + "->" + triplet.dstId)
+        //println("sendmsg:" + triplet.srcId + "->" + triplet.dstId)
 
-        if (triplet.dstAttr.size < maxDepth) {
-          println("sendmsg:" + triplet.srcId + "->" + triplet.srcAttr + "+" + triplet.dstId)
-          var res: Set[List[((VertexId, VertexId), (Long, Double))]] = Set()
+        var res: Set[List[((VertexId, VertexId), (Long, Double))]] = Set()
 
-          if (triplet.dstAttr.size == 0) {
-            val msg: List[((VertexId, VertexId), (Long, Double))] = ((triplet.srcId, triplet.dstId), triplet.attr) :: Nil
-            res = res + msg
-            Iterator((triplet.srcId, res))
-          }
-          else {
-            triplet.dstAttr.foreach(a => {
-              //增加判断条件，判断交易金额在指定范围内，避免金额过小，或过大
-
-              //增加判断条件，如果时间小于后续交易，纳入交易链路。
-              if (a(0)._2._1 > triplet.attr._1) {
-                //把数据加入到列表当中
-                val msg: List[((VertexId, VertexId), (Long, Double))] = ((triplet.srcId, triplet.dstId), triplet.attr) :: Nil ::: a
-                res = res + msg
-              }
-            })
-            Iterator((triplet.srcId, res))
-          }
+        if (triplet.dstAttr.size == 0) {
+          val msg: List[((VertexId, VertexId), (Long, Double))] = ((triplet.srcId, triplet.dstId), triplet.attr) :: Nil
+          res = res + msg
+          Iterator((triplet.srcId, res))
         }
         else {
-          Iterator.empty
+          var max = 0
+          triplet.dstAttr.foreach(a => {
+            //增加判断条件，判断交易金额在指定范围内，避免金额过小，或过大
+
+            //增加判断条件，如果时间小于后续交易，纳入交易链路。
+            if (a(0)._2._1 > triplet.attr._1) {
+              //把数据加入到列表当中
+              val msg: List[((VertexId, VertexId), (Long, Double))] = ((triplet.srcId, triplet.dstId), triplet.attr) :: Nil ::: a
+              res = res + msg
+            }
+
+            //记录链路深度
+            max = if(a.size>max) a.size else max
+          })
+          if (max > maxDepth) Iterator.empty else Iterator((triplet.srcId, res))
         }
       },
       //指向相同顶点的边，进行合并操作
       (a, b) => {
-        println("merge:" + a + "," + b);
+        //println("merge:" + a + "," + b);
         a ++ b
       }
     )
 
-
-    //    pathGraph.vertices.map(kv => {
-    //
-    //      val set = kv._2
-    //      val nodeId = kv._1
-    //      //所有路径信息进行分组，存储到map集合中，根据起始节点key进行查找
-    //      val allPath: Map[Long, Set[(Long, (Long, Long, Double))]] = set.flatten.map(a => (a._1._1, (a._1._2, a._2._1, a._2._2))).groupBy(a => a._1)
-    //
-    //      println("allPath:" + allPath)
-    //      val initPaths = allPath.getOrElse(nodeId, Nil)
-    //
-    //      val result = ListBuffer[List[List[(Int, Long, Long, Long, Double)]]]()
-    //
-    //      for (iter <- initPaths.iterator) {
-    //        println("初始化节点:" + iter)
-    //        val initNode = NodeInfo(0, iter._1, iter._2._1, iter._2._2, iter._2._3)
-    //        val r = fromOnePath(initNode, allPath)
-    //        result += r
-    //      }
-    ////      (4,)
-    ////      (1,List(List((0,1,2,123,100.0), (1,2,3,124,100.0), (2,3,4,125,100.0))))
-    ////      (3,List(List((0,3,4,125,100.0))))
-    ////      (2,List(List((0,2,3,124,100.0), (1,3,4,125,100.0))))
-    //      (nodeId,result.toList)
-    //    }).collect.foreach(println)
-    //将顶点数据与下游交易数据拆分开，每条交易一行记录
     val paths = pathGraph.vertices.flatMapValues(v => {
       val r = mutable.Map[((Long, Long), (Long, Double)), Set[List[((Long, Long), (Long, Double))]]]()
       v.foreach(l => {
         //把所有交易链路的第一个值取出，当作key存储，然后把key相同的，所有的列表值进行追加到一个Set中
         var p: Set[List[((Long, Long), (Long, Double))]] = r.getOrElse(l(0), Set[List[((Long, Long), (Long, Double))]]())
-        p =  p + l
+        p = p + l
         r.put(l(0), p)
       })
       r.values
     }
-    ).map( kv => {
-        val set = kv._2
-        val nodeId = kv._1
-        println("values:"+set)
-        //把所有路径信息进行分组，存储到map集合中，根据起始节点key进行查找
-        val allPath: Map[Long, Set[(Long, (Long, Long, Double))]] = set.flatten.map(a => (a._1._1, (a._1._2, a._2._1, a._2._2))).groupBy(a => a._1)
+    ).map(kv => {
+      val set = kv._2
+      val nodeId = kv._1
+      //println("values:"+set)
+      //把所有路径信息进行分组，存储到map集合中，根据起始节点key进行查找
+      val allPath: Map[Long, Set[(Long, (Long, Long, Double))]] = set.flatten.map(a => (a._1._1, (a._1._2, a._2._1, a._2._2))).groupBy(a => a._1)
 
-        println("allPath:" + allPath)
-        val initPaths = allPath.getOrElse(nodeId, Nil)
+      //println("allPath:" + allPath)
+      val initPaths = allPath.getOrElse(nodeId, Nil)
 
-        var r :List[List[(Int, Long, Long, Long, Double)]] = Nil
+      var r: List[List[(Int, Long, Long, Long, Double)]] = Nil
+      var dst_id: Long = 0L
+      var deal_time: Long = 0l
+      var deal_money: Double = 0
 
-        for (item <- initPaths.iterator) {
-          println("初始化节点:" + item)
-          val initNode = NodeInfo(0, item._1, item._2._1, item._2._2, item._2._3)
-          r = fromOnePath(initNode, allPath)
-        }
-        (nodeId, r.mkString("|"))
+      for (item <- initPaths.iterator) {
+        //println("初始化节点:" + item)
+        dst_id = item._2._1
+        deal_time = item._2._2
+        deal_money = item._2._3
+        val initNode = NodeInfo(0, item._1, item._2._1, item._2._2, item._2._3)
+        r = fromOnePath(initNode, allPath)
       }
+      (nodeId, dst_id, new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(deal_time), deal_money, r.size, r.last.last._1, r.toString())
+    }
     )
-    //(1111111116,List((0,1111111116,1111111117,1641042005000,10000.0)))
 
+    //结果数据写入到表中
     val schema: types.StructType = StructType(
       Seq(
-        StructField("src_id",LongType,true),
-        //StructField("result",StringType,true),
+        StructField("src_id", LongType, true),
+        StructField("dst_id", LongType, true),
+        StructField("deal_time", StringType, true),
+        StructField("deal_money", DoubleType, true),
+        StructField("combine_num", IntegerType, true),
+        StructField("depth_num", IntegerType, true),
+        StructField("result", StringType, true),
       )
     )
-    val rowRDD: RDD[Row] = paths.map(r => Row(r._1))
 
-    val rowDF = spark.createDataFrame(rowRDD,schema)
-
+    val rowRDD: RDD[Row] = paths.map(r => Row(r._1, r._2, r._3, r._4, r._5, r._6, r._7))
+    val rowDF = spark.createDataFrame(rowRDD, schema)
     rowDF.createOrReplaceTempView("trans")
-
-    spark.table("trans").write.insertInto("transresult")
+    spark.table("trans").write.insertInto(resultTable)
 
     //关闭
     spark.stop()
   }
 
-  def transTimeToLong(tm:String) :Long={
+  def transTimeToLong(tm: String): Long = {
     val fm = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
     val dt = fm.parse(tm)
     val aa = fm.format(dt)
@@ -210,7 +198,7 @@ object TransInfo {
 
       pathList.append(rl.toList)
     }
-    println("onepath=" + pathList)
+
     pathList.toList
   }
 }
