@@ -224,7 +224,7 @@ class TransMain{
     if(node.cardId.size==0){
       return true;
     }
-    return false
+    false
   }
 
 
@@ -346,7 +346,7 @@ class TransMain{
     */
   def findCombineTrans( candidates:ListBuffer[NodeInfo], target:Double) :List[List[Int]] ={
 
-    var allCombine = ListBuffer[List[Int]]()
+    val allCombine = ListBuffer[List[Int]]()
     var combine = ListBuffer[Int]()
 
     def backtracking(sum: Double, startIndex: Int): Unit = {

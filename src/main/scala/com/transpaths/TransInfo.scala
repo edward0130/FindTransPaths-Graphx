@@ -64,6 +64,7 @@ object TransInfo {
         //println("sendmsg:" + triplet.srcId + "->" + triplet.dstId)
 
         var res: Set[List[((VertexId, VertexId), (Long, Double))]] = Set()
+        val lm = new LimitElement()
 
         if (triplet.dstAttr.size == 0) {
           val msg: List[((VertexId, VertexId), (Long, Double))] = ((triplet.srcId, triplet.dstId), triplet.attr) :: Nil
@@ -73,10 +74,16 @@ object TransInfo {
         else {
           var max = 0
           triplet.dstAttr.foreach(a => {
-            //增加判断条件，判断交易金额在指定范围内，避免金额过小，或过大
 
-            //增加判断条件，如果时间小于后续交易，纳入交易链路。
-            if (a(0)._2._1 > triplet.attr._1) {
+            //增加判断条件
+            // 1.如果时间小于后续交易，纳入交易链路;
+            // 2.交易时间间隔不超过配置时间;
+            // 3.下一笔的交易额，大于当前交易额的最小占比
+            if (triplet.attr._1 < a(0)._2._1 &&
+                (triplet.attr._1 + lm.getMillisecond() > a(0)._2._1) &&
+                (triplet.attr._2 < a(0)._2._2 * lm.singleScale) &&
+                a(0)._2._2 > lm.minMoney
+               ) {
               //把数据加入到列表当中
               val msg: List[((VertexId, VertexId), (Long, Double))] = ((triplet.srcId, triplet.dstId), triplet.attr) :: Nil ::: a
               res = res + msg
@@ -85,7 +92,7 @@ object TransInfo {
             //记录链路深度
             max = if(a.size>max) a.size else max
           })
-          if (max > maxDepth) Iterator.empty else Iterator((triplet.srcId, res))
+          if (max > lm.maxDepth) Iterator.empty else Iterator((triplet.srcId, res))
         }
       },
       //指向相同顶点的边，进行合并操作
