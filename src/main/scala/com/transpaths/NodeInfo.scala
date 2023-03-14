@@ -36,7 +36,7 @@ class NodeInfo {
         return true
       }
     }
-    return false
+    false
   }
 
   override def toString: String = "["+this.level+","+this.cardId+","+this.toCardId+","+this.dealTime+","+this.dealMoney+","+this.maxDealTime+","+this.totalMoney

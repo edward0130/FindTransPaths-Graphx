@@ -152,7 +152,7 @@ class TransMain{
                   bt.queue.enqueue(nodeList(allCombine(j)(k)))
               }
               //把组合路径放到堆栈中，
-              pathStack.push(bt);
+              pathStack.push(bt)
             }
             //把组合的第一个路径写入队列
             if (allCombine.size>0) {
@@ -322,7 +322,6 @@ class TransMain{
         //unionTransInfo(nodeList, n, queue)
         nodeList+=n
       }
-
     }
 
     //此节点没有后续交易，属于尾节点，插入到尾部列表，后续用于跨层级的合并
@@ -330,7 +329,7 @@ class TransMain{
 
     //println("nodeList="+nodeList)
 
-    return nodeList
+    nodeList
   }
 
 
@@ -351,10 +350,11 @@ class TransMain{
 
     def backtracking(sum: Double, startIndex: Int): Unit = {
 
+      if(allCombine.size>0) return
+
       if (sum > target * limit.getMinScale() && sum < target * limit.getMaxScale()) {
         allCombine.append(combine.toList)
-        //获取所有满足交易的组合，如果后续组合满足继续查找，不退出
-        //return;
+        return
       }
 
       //1.超出限制总额，停止向树枝寻找，进行剪枝  2.超出指定组合笔数就跳过，进行剪枝
