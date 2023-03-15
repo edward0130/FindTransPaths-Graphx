@@ -21,9 +21,13 @@ object TransInfo {
     //创建运行环境
     val conf = new SparkConf().setAppName("TransInfo-GraphX")
 
-    if (args.size != 2) return
+    if (args.size !=2 && args.size !=9 ) return
     val sqlStr = args(0)
     val resultTable = args(1)
+
+
+    val limitElement = if(args.size==9) new LimitElement(args(2).toFloat,args(3).toFloat,args(4).toInt,args(5).toFloat,args(6).toInt,args(7).toInt,args(8).toInt) else new LimitElement()
+
 
     //println(sqlStr)
     //读取json文件
@@ -35,6 +39,8 @@ object TransInfo {
     val spark = SparkSession.builder().enableHiveSupport().config(conf).getOrCreate()
     val hrdd = spark.sql(sqlStr).rdd
 
+    //广播变量
+    val bcLm = spark.sparkContext.broadcast(limitElement)
 
     val trans: RDD[Edge[(Long, Double)]] = hrdd.map(r => Edge(r.get(0).toString.toLong, r.get(1).toString.toLong, (transTimeToLong(r.get(2).toString), r.get(3).toString.toDouble)))
 
@@ -45,7 +51,7 @@ object TransInfo {
     val initialMsg: Set[List[((VertexId, VertexId), (Long, Double))]] = Set()
 
     //设置查询深度
-    val maxDepth = new LimitElement().getMaxDepth
+    val maxDepth = bcLm.value.getMaxDepth
 
     //初始化图，把节点信息进行初始化为集合对象
     val initialGraph = graph.mapVertices((id, _) => Set[List[((VertexId, VertexId), (Long, Double))]]()).partitionBy(PartitionStrategy.EdgePartition2D, 64)
@@ -66,7 +72,7 @@ object TransInfo {
 
         var res: Set[List[((VertexId, VertexId), (Long, Double))]] = Set()
 
-        val lm = new LimitElement()
+        val lm = bcLm.value
 
         if (triplet.dstAttr.size == 0) {
           val msg: List[((VertexId, VertexId), (Long, Double))] = ((triplet.srcId, triplet.dstId), triplet.attr) :: Nil
@@ -144,7 +150,7 @@ object TransInfo {
       val deal_time: Long = initPath(0)._2._1
       val deal_money: Double = initPath(0)._2._2
       val initNode = NodeInfo(0, initPath(0)._1._1, dst_id, deal_time, deal_money)
-      val r: List[List[(Int, Long, Long, Long, Double)]] = fromOnePath(initNode, allPath)
+      val r: List[List[(Int, Long, Long, Long, Double)]] = fromOnePath(initNode, allPath, bcLm.value)
 
       (nodeId, dst_id, new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(deal_time), deal_money, r.size, r.last.last._1, r.toString())
     })
@@ -186,7 +192,7 @@ object TransInfo {
    * @param initNode
    * @param allPath
    */
-  def fromOnePath(initNode: NodeInfo, allPath: Map[Long, Set[(Long, (Long, Long, Double))]]): List[List[(Int, Long, Long, Long, Double)]] = {
+  def fromOnePath(initNode: NodeInfo, allPath: Map[Long, Set[(Long, (Long, Long, Double))]], bcLm:LimitElement): List[List[(Int, Long, Long, Long, Double)]] = {
 
     //初始化信息
     val transMain = TransMain()
@@ -195,7 +201,7 @@ object TransInfo {
     val pathList: ListBuffer[List[(Int, Long, Long, Long, Double)]] = ListBuffer()
 
     //条件信息
-    transMain.limit = new LimitElement()
+    transMain.limit = bcLm
 
     //初始交易进入队列
     transPath.queue.enqueue(initNode)

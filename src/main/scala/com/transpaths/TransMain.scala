@@ -350,7 +350,7 @@ class TransMain{
 
     def backtracking(sum: Double, startIndex: Int): Unit = {
 
-      if(allCombine.size>0) return
+      //if(allCombine.size>0) return
 
       if (sum > target * limit.getMinScale() && sum < target * limit.getMaxScale()) {
         allCombine.append(combine.toList)
