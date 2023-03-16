@@ -19,7 +19,8 @@ object TransInfo {
     //调用 spark-submit --master local --class com.transpaths.TransInfo  FindTransPaths-Graphx.jar "select src_id, dst_id, deal_time, deal_money from transaction where partition_dt=20220101" "transresult"
 
     //创建运行环境
-    val conf = new SparkConf().setAppName("TransInfo-GraphX")
+    val conf = new SparkConf().setAppName("TransInfo-GraphX").set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+                              .set("spark.kryo.registrator", "com.transpaths.MyKryoRegistrator")
 
     if (args.size !=2 && args.size !=9 ) return
     val sqlStr = args(0)
@@ -125,6 +126,8 @@ object TransInfo {
     }).map(kv => {
       val set = kv._2
       val nodeId = kv._1
+
+      val initPath = set.head
       //println("values:"+set)
       //把所有路径信息进行分组，存储到map集合中，根据起始节点key进行查找
       val allPath: Map[Long, Set[(Long, (Long, Long, Double))]] = set.flatten.map(a => (a._1._1, (a._1._2, a._2._1, a._2._2))).groupBy(a => a._1)
@@ -145,15 +148,18 @@ object TransInfo {
       //        val initNode = NodeInfo(0, item._1, item._2._1, item._2._2, item._2._3)
       //        r = fromOnePath(initNode, allPath)
       //      }
-      val initPath = set.head
+
       val dst_id: Long = initPath(0)._1._2
       val deal_time: Long = initPath(0)._2._1
       val deal_money: Double = initPath(0)._2._2
-      val initNode = NodeInfo(0, initPath(0)._1._1, dst_id, deal_time, deal_money)
+      val initNode = new NodeInfo(0, initPath(0)._1._1, dst_id, deal_time, deal_money)
       val r: List[List[(Int, Long, Long, Long, Double)]] = fromOnePath(initNode, allPath, bcLm.value)
 
-      (nodeId, dst_id, new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(deal_time), deal_money, r.size, r.last.last._1, r.toString())
-    })
+      //(nodeId, dst_id, new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(deal_time), deal_money, r.size, r.last.last._1, r.toString())
+      ((nodeId, dst_id, new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(deal_time), deal_money, r.size, r.last.last._1), r)
+    }).flatMapValues( l => l.iterator).map(r =>
+      (r._1._1, r._1._2, r._1._3, r._1._4, r._1._5, r._2.last._1, r._2.toString())
+    )
 
     //结果数据写入到表中
     val schema: types.StructType = StructType(
@@ -224,4 +230,6 @@ object TransInfo {
 
     pathList.toList
   }
+
+
 }

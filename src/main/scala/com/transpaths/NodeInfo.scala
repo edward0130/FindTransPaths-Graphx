@@ -3,7 +3,7 @@ package com.transpaths
 import scala.beans.BeanProperty
 import scala.collection.mutable.ListBuffer
 
-class NodeInfo {
+class NodeInfo extends Serializable {
 
   @BeanProperty var level = 0
   @BeanProperty val cardId: ListBuffer[Long] = ListBuffer()
@@ -25,6 +25,17 @@ class NodeInfo {
     this.totalMoney = money
   }
 
+  def this(nodeInfo: NodeInfo){
+    this()
+    this.level = nodeInfo.level
+    for(i <- nodeInfo.cardId) this.cardId.append(i)
+    this.toCardId = nodeInfo.toCardId
+    for(i <- nodeInfo.dealTime) this.dealTime.append(i)
+    for(i <- nodeInfo.dealMoney) this.dealMoney.append(i)
+    this.maxDealTime = nodeInfo.maxDealTime
+    this.totalMoney = nodeInfo.totalMoney
+  }
+
   //删除相同交易信息
   def delInfo(card: Long, time: Long, money: Double): Boolean = {
 
@@ -43,10 +54,10 @@ class NodeInfo {
 
 }
 
-object NodeInfo{
-  def apply: NodeInfo = new NodeInfo()
-
-  def apply(level:Int, cardId:Long, toCardId:Long, dealTime:Long, money: Double): NodeInfo = {
-    new NodeInfo(level, cardId, toCardId, dealTime, money)
-  }
-}
+//object NodeInfo{
+//  def apply: NodeInfo = new NodeInfo()
+//
+//  def apply(level:Int, cardId:Long, toCardId:Long, dealTime:Long, money: Double): NodeInfo = {
+//    new NodeInfo(level, cardId, toCardId, dealTime, money)
+//  }
+//}

@@ -29,7 +29,7 @@ object Test1 {
         p = p + l
         r.put(l(0), p)
       })
-      r.values
+      r.toList
     }
     ).collect().foreach(println)
 

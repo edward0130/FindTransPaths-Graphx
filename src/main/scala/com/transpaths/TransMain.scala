@@ -1,5 +1,6 @@
 package com.transpaths
 
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, ObjectInputStream, ObjectOutputStream}
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
@@ -141,8 +142,10 @@ class TransMain{
             for ( j <- 1 until allCombine.size) {
 
               //路径拷贝，拷贝后放入到堆栈中
-              transPath.levelList = levelList;
-              val bt: TransPath = transPath.clone();
+              transPath.levelList = levelList
+              //val bt: TransPath = transPath.clone();
+              //val bt: TransPath = deepCopy(transPath)
+              val bt:TransPath = deepClone(transPath)
               //设置组合标记
               bt.combineFlag = true;
               //记录当前层级剩余的队列数量
@@ -312,7 +315,7 @@ class TransMain{
 
     for(iter <- node.iterator){
       //println("iterator："+ iter)
-      val n = NodeInfo(layer, iter._1, iter._2._1, iter._2._2, iter._2._3)
+      val n = new NodeInfo(layer, iter._1, iter._2._1, iter._2._2, iter._2._3)
       //println("n："+ n.toString)
       //println("node:"+nodeInfo.toString)
       val r = filterTransInfo(nodeInfo, n)
@@ -363,7 +366,7 @@ class TransMain{
         combine.append(i);
 
         // 从树枝节点继续往下搜索
-        backtracking( sum + candidates(i).getTotalMoney(), i + 1);
+        backtracking( sum + candidates(i).getTotalMoney(), i + 1)
 
         combine = combine.take(combine.size - 1)
       }
@@ -372,7 +375,37 @@ class TransMain{
     backtracking(0, 0)
     allCombine.toList
   }
+
+  def deepClone(transPath:TransPath): TransPath = {
+    val tp = new TransPath()
+    tp.levelNum = transPath.levelNum
+    tp.usedNum = transPath.usedNum
+    tp.queueNum = transPath.queueNum
+    tp.combineFlag = transPath.combineFlag
+
+    for(q <- transPath.queue)  tp.queue.enqueue(new NodeInfo(q))
+    for(q <- transPath.info)  tp.info.append( for(i<-q)  yield new NodeInfo(i))
+    for(q <- transPath.endTransList)  tp.endTransList.append(new NodeInfo(q))
+    for(q <- transPath.levelList)  tp.levelList.append(new NodeInfo(q))
+    tp
+  }
+
+  def deepCopy(transPath:TransPath): TransPath = {
+    val byteOut = new ByteArrayOutputStream()
+    val objOut = new ObjectOutputStream(byteOut)
+    objOut.writeObject(transPath)
+    objOut.close()
+
+    val byteIn = new ByteArrayInputStream(byteOut.toByteArray)
+    val objIn = new ObjectInputStream(byteIn)
+    val newObj = objIn.readObject().asInstanceOf[TransPath]
+    objIn.close()
+
+    newObj
+  }
 }
+
+
 
 object TransMain{
   def apply(): TransMain = new TransMain()

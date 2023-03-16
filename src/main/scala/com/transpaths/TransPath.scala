@@ -1,9 +1,10 @@
 package com.transpaths
 
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, ObjectInputStream, ObjectOutputStream}
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
-class TransPath {
+class TransPath extends Serializable {
 
   //创建队列存储交易层次信息，对数据进行广度优先搜索
   var queue: mutable.Queue[NodeInfo] = new mutable.Queue[NodeInfo]()
@@ -28,12 +29,12 @@ class TransPath {
   //是否是组合标记
   var combineFlag: Boolean = false
 
-  def this(queue:mutable.Queue[NodeInfo], info:ListBuffer[List[NodeInfo]], endTransList:ListBuffer[NodeInfo], levelList:ListBuffer[NodeInfo], levelNum:Int, usedNum:Int, queueNum:Int, combineFlag:Boolean){
+  def this(queue: mutable.Queue[NodeInfo], info: ListBuffer[List[NodeInfo]], endTransList: ListBuffer[NodeInfo], levelList: ListBuffer[NodeInfo], levelNum: Int, usedNum: Int, queueNum: Int, combineFlag: Boolean) {
     this()
-    this.queue = queue.clone()
-    this.info = info.clone()
-    this.endTransList = endTransList.clone()
-    this.levelList = levelList.clone()
+    this.queue = queue
+    this.info = info
+    this.endTransList = endTransList
+    this.levelList = levelList
     this.levelNum = levelNum
     this.usedNum = usedNum
     this.queueNum = queueNum
@@ -41,13 +42,8 @@ class TransPath {
 
   override def toString: String = this.info.mkString(",")
 
-
-  override def clone(): TransPath = {
-    new TransPath(this.queue, this.info, this.endTransList, this.levelList, this.levelNum, this.usedNum, this.queueNum, this.combineFlag)
-  }
-
 }
 
-object TransPath{
+object TransPath {
   def apply(): TransPath = new TransPath()
 }
