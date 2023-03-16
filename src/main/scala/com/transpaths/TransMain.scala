@@ -84,7 +84,7 @@ class TransMain{
     * 查找交易路径，使用广度优先算法
     * @param transPath
     */
-  def findPath(transPath: TransPath, allPath: Map[Long, Set[(Long, (Long, Long, Double))]]): ListBuffer[List[NodeInfo]] ={
+  def findPath(transPath: TransPath, allPath: Map[Long, Set[(Long, (Long, Long, Double))]], limit:LimitElement): ListBuffer[List[NodeInfo]] ={
 
     while(transPath.queue.nonEmpty){
 
@@ -133,7 +133,7 @@ class TransMain{
 
             val target = node.totalMoney
             //组合序号列表结果集
-            val allCombine:List[List[Int]] = findCombineTrans(nodeList, target)
+            val allCombine:List[List[Int]] = findCombineTrans(nodeList, target, limit)
             //println("组合结果："+allCombine)
             if(allCombine.size==0)
               nodeList = null
@@ -346,14 +346,14 @@ class TransMain{
     * @param target       目标金额
     *
     */
-  def findCombineTrans( candidates:ListBuffer[NodeInfo], target:Double) :List[List[Int]] ={
+  def findCombineTrans( candidates:ListBuffer[NodeInfo], target:Double, limit:LimitElement) :List[List[Int]] ={
 
     val allCombine = ListBuffer[List[Int]]()
     var combine = ListBuffer[Int]()
 
     def backtracking(sum: Double, startIndex: Int): Unit = {
 
-      //if(allCombine.size>0) return
+      if(allCombine.size>=limit.combineCount) return
 
       if (sum > target * limit.getMinScale() && sum < target * limit.getMaxScale()) {
         allCombine.append(combine.toList)

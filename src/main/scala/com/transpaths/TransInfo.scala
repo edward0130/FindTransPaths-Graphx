@@ -22,12 +22,12 @@ object TransInfo {
     val conf = new SparkConf().setAppName("TransInfo-GraphX").set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
                               .set("spark.kryo.registrator", "com.transpaths.MyKryoRegistrator")
 
-    if (args.size !=2 && args.size !=9 ) return
+    if (args.size !=2 && args.size !=10 ) return
     val sqlStr = args(0)
     val resultTable = args(1)
 
 
-    val limitElement = if(args.size==9) new LimitElement(args(2).toFloat,args(3).toFloat,args(4).toInt,args(5).toFloat,args(6).toInt,args(7).toInt,args(8).toInt) else new LimitElement()
+    val limitElement = if(args.size==10) new LimitElement(args(2).toFloat,args(3).toFloat,args(4).toInt,args(5).toFloat,args(6).toInt,args(7).toInt,args(8).toInt,args(9).toInt) else new LimitElement()
 
 
     //println(sqlStr)
@@ -218,7 +218,7 @@ object TransInfo {
     //交易路径不为空，表示还有组合的交易，继续寻找
     while (transMain.pathStack.nonEmpty) {
       val p: TransPath = transMain.pathStack.pop()
-      val res = transMain.findPath(p, allPath)
+      val res = transMain.findPath(p, allPath, transMain.limit)
 
       val rl = res.flatten.map(lst => {
         for (idx <- 0 until lst.cardId.size)
